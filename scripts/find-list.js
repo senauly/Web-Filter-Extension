@@ -1,6 +1,6 @@
 var paths = new Map();
 const skippedTags = ['script', 'input', 'form', 'header', 'footer', 'nav', 'style', 'meta'];
-const skippedRoles = ['radio', 'button', 'checkbox'];
+const skippedRoles = ['radio', 'button', 'checkbox', 'navigation'];
 
 function traverse(element) {
     // Get the same tagged children of the element
@@ -46,18 +46,17 @@ function getPath(element) {
     // If the element has a parent, get the parent's path
     if (element.parentNode) {
         // Append the element's tag name and class name to the parent's path
-        if (element.className) {
+        if(element.className) {
             return getPath(element.parentNode) + '/' + element.tagName + '.' + element.className;
         }
-        if (element.id) {
+        else if (element.id) {
             return getPath(element.parentNode) + '/' + element.tagName + '#' + element.id;
         }
+
         return getPath(element.parentNode) + '/' + element.tagName;
 
-
     } else {
-        // Otherwise, return the element's tag name and class name
-        return element.tagName + '.' + element.className;
+        return '';
     }
 }
 
@@ -153,6 +152,6 @@ function isParentColored(element) {
 }
 
 getPaths();
+printMap(paths);
 eliminatePaths();
 colorPaths();
-printMap(paths);
