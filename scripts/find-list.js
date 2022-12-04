@@ -1,6 +1,8 @@
 var paths = new Map();
-const skippedTags = ['script', 'input', 'form', 'header', 'footer', 'nav', 'style', 'meta'];
-const skippedRoles = ['radio', 'button', 'checkbox', 'navigation'];
+var skippedTags = ['script', 'input', 'header', 'footer', 'nav', 'style', 'meta', 'form', 'td'];
+var skippedRoles = ['radio', 'button', 'checkbox', 'navigation'];
+
+var lists = new Array();
 
 function traverse(element) {
     // Get the same tagged children of the element
@@ -40,7 +42,7 @@ function addNewPath(path) {
     }
     return paths.get(path);
 }
-
+ 
 function getPath(element) {
     let level = 0;
     // If the element has a parent, get the parent's path
@@ -51,6 +53,14 @@ function getPath(element) {
         }
         else if (element.id) {
             return getPath(element.parentNode) + '/' + element.tagName + '#' + element.id;
+        }
+
+        else if (element.getAttribute('role') && element.tagName.toLowerCase() != 'svg') {
+            return getPath(element.parentNode) + '/' + element.tagName + '&role&' + element.getAttribute('role');
+        }
+
+        else if (element.getAttribute('data-testid') && element.tagName.toLowerCase() != 'svg') {
+            return getPath(element.parentNode) + '/' + element.tagName + '&data-testid&' + element.getAttribute('data-testid');
         }
 
         return getPath(element.parentNode) + '/' + element.tagName;
@@ -79,27 +89,20 @@ function eliminatePaths() {
     console.log("Eliminated " + count + " paths");
 }
 
-//TODO: Add support for id and with no classes and ids
-function findThePath(path){
-    //get the last element of the path
-    let last_element = path.substring(path.lastIndexOf('/') + 1);
-    //get the tag name
-    let tag_name = last_element.substring(0, last_element.indexOf('.'));
-    //get the class name
-    let class_name = last_element.substring(last_element.indexOf('.') + 1);
-    //get the id
-    let id = last_element.substring(last_element.indexOf('#') + 1);
+function getList(path){
+    //split the path into elements
+    let path_items = path.split('/');
+    let last_element = path_items[path_items.length - 1];
+    let elements = returnByIdentifier(last_element);
 
-    //get the elements with the same class name
-    let elements = document.getElementsByClassName(class_name);
+    let parent_path = "";
+    if( path_items.length > 1){
+        parent_path = path_items[path_items.length - 2]
+    }
 
-    //remove from elements if parent is not the same
-    //get parent
-    let parent_path = path.substring(0, path.lastIndexOf('/'));
-    let parent = document.getElementsByClassName(parent_path.substring(parent_path.lastIndexOf('.') + 1))[0];
-
+    let parent = returnByIdentifier(parent_path.substring(parent_path.lastIndexOf('/') + 1))[0];
     let siblings = [];
-
+    
     for (let i = 0; i < elements.length; i++) {
         if (elements[i].parentNode == parent) {
             siblings.push(elements[i]);
@@ -121,15 +124,43 @@ function printMap(map) {
     }
 }
 
+function returnByIdentifier(last_element) {
+    if(last_element.indexOf('.') == -1 && last_element.indexOf('#') == -1 && last_element.indexOf('&') == -1) {
+        return document.getElementsByTagName(last_element);
+    }
+
+    let class_name = last_element.substring(last_element.indexOf('.') + 1);
+    let id = last_element.substring(last_element.indexOf('#') + 1);
+    let attribute_name = last_element.substring(last_element.indexOf('&') + 1, last_element.indexOf('&', last_element.indexOf('&') + 1));
+    let attribute_value = last_element.substring(last_element.indexOf('&', last_element.indexOf('&') + 1) + 1);
+
+    if (class_name) {
+        return document.getElementsByClassName(class_name);
+    }
+    else if (id) {
+        return document.getElementById(id);
+    }
+    else if (attribute_name && attribute_value) {
+        return document.querySelectorAll('[' + attribute_name + '="' + attribute_value + '"]');
+    }
+    else {
+        return [];
+    }
+}   
+
 function colorPaths() {
     const colors = ["red", "blue", "green", "yellow", "orange", "purple", "pink", "brown", "black", "white"];
     let j = 0;
+    var element_list = [];
     for (let [key, value] of paths) {
         if(value > 1) {
-            let elements = findThePath(key);
+            let elements = getList(key);
             if(elements.length > 1) {
                 for(let i = 0; i < elements.length; i++) {
-                    if(!isParentColored(elements[i])) elements[i].style.backgroundColor = colors[j];
+                    if(!isParentColored(elements[i])){
+                        elements[i].style.backgroundColor = colors[j];
+                        element_list.push(elements[i]);
+                    }
                 }
                 j++;
                 if(j == colors.length) {
@@ -138,6 +169,8 @@ function colorPaths() {
             }
         }
     }
+
+    lists.push(element_list);
 }
 
 //recursively check if any parent is colored
@@ -151,7 +184,23 @@ function isParentColored(element) {
     return false;
 }
 
+function removeElementFromDOM(text){
+    //remove from DOM if list element contains a text
+    for(let i = 0; i < lists.length; i++) {
+        for(let j = 0; j < lists[i].length; j++) {
+            if(lists[i][j].textContent.indexOf(text) != -1) {
+                //remove from DOM
+                console.log("Removed object from DOM: " + text);
+                lists[i][j].parentNode.removeChild(lists[i][j]);
+            }
+        }
+    }
+}
+
 getPaths();
-printMap(paths);
 eliminatePaths();
 colorPaths();
+//printMap(paths);
+removeElementFromDOM("Arama Arama");
+
+
