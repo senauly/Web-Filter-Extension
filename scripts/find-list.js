@@ -1,8 +1,9 @@
-const paths = new Map();
+var paths = new Map();
 const skippedTags = ['script', 'input', 'form', 'header', 'footer', 'nav', 'style', 'meta'];
+const skippedRoles = ['radio', 'button', 'checkbox'];
 
 function traverse(element) {
-    // Get the children of the current element
+    // Get the same tagged children of the element
     const children = element.children;
 
     // Loop through the children
@@ -14,9 +15,15 @@ function traverse(element) {
             continue;
         }
 
+        //check if the role is in the skippedRoles array
+        if (children[i].getAttribute('role')) {
+            if (skippedRoles.includes(children[i].getAttribute('role').toLowerCase())) {
+                continue;
+            }
+        }
+
         if(children[i].textContent) {
             var curr_path = getPath(children[i]);
-            //add attribute to the element
             addNewPath(curr_path);
         }
 
@@ -73,15 +80,7 @@ function eliminatePaths() {
     console.log("Eliminated " + count + " paths");
 }
 
-function removePathFromDOM(path) {
-    for (let [key, value] of map) {
-        if(key == path) {
-            let element = document.querySelector(path);
-            element.remove();
-        }
-    }
-}
-
+//TODO: Add support for id and with no classes and ids
 function findThePath(path){
     //get the last element of the path
     let last_element = path.substring(path.lastIndexOf('/') + 1);
@@ -94,9 +93,25 @@ function findThePath(path){
 
     //get the elements with the same class name
     let elements = document.getElementsByClassName(class_name);
-    //change the background color of the elements
-    return elements;
 
+    //remove from elements if parent is not the same
+    //get parent
+    let parent_path = path.substring(0, path.lastIndexOf('/'));
+    let parent = document.getElementsByClassName(parent_path.substring(parent_path.lastIndexOf('.') + 1))[0];
+
+    let siblings = [];
+
+    for (let i = 0; i < elements.length; i++) {
+        if (elements[i].parentNode == parent) {
+            siblings.push(elements[i]);
+        }
+
+        else {
+            //remove from path
+            paths.delete(path);
+        }
+    }
+    return siblings;
 }
 
 function printMap(map) {
@@ -113,18 +128,31 @@ function colorPaths() {
     for (let [key, value] of paths) {
         if(value > 1) {
             let elements = findThePath(key);
-            for(let i = 0; i < elements.length; i++) {
-                elements[i].style.backgroundColor = colors[j];
-            }
-            j++;
-            if(j == colors.length) {
-                j = 0;
+            if(elements.length > 1) {
+                for(let i = 0; i < elements.length; i++) {
+                    if(!isParentColored(elements[i])) elements[i].style.backgroundColor = colors[j];
+                }
+                j++;
+                if(j == colors.length) {
+                    j = 0;
+                }
             }
         }
     }
 }
 
+//recursively check if any parent is colored
+function isParentColored(element) {
+    if(element.parentNode) {
+        if(element.parentNode.style && element.parentNode.style.backgroundColor) {
+            return true;
+        }
+        return isParentColored(element.parentNode);
+    }
+    return false;
+}
+
 getPaths();
 eliminatePaths();
-printMap(paths);
 colorPaths();
+printMap(paths);
