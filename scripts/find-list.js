@@ -169,6 +169,11 @@ function savePossibleLists() {
                     elements[i].setAttribute("wfe-check", "checked");
                     element_list.push(elements[i]);
                 }
+
+                else {
+                    console.log(key);
+                    paths.delete(key);
+                }
             }
             j++;
             if (j == colors.length) {
@@ -215,12 +220,32 @@ function removeElementFromDOM(text) {
     console.log("Removed " + count + " elements from DOM");
 }
 
-getPaths();
-eliminatePaths();
-savePossibleLists();
-printMap(paths);
+// options for the observer (which mutations to observe)
+var config = { childList: true, subtree: true };
 
+// callback function to execute when mutations are observed
+const callback = function (mutationsList, observer) {
+    for (let mutation of mutationsList) {
+        if (mutation.type === 'childList') {
+            getPaths();
+            eliminatePaths();
+            savePossibleLists();
+            printMap(paths);
+        }
+    }
+};
 
+// create an observer instance linked to the callback function
+const observer = new MutationObserver(callback);
 
+// start observing the target node for configured mutations
+observer.observe(document.body, config);
 
-
+chrome.runtime.onMessage.addListener(
+    function(request) {
+        if(request.message === "filter") {
+            // filter the list with the filtered word
+            removeElementFromDOM(request.text);
+        }
+    }
+);
