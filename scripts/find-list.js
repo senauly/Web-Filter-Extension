@@ -24,7 +24,7 @@ function traverse(element) {
             }
         }
 
-        if(children[i].textContent) {
+        if (children[i].textContent) {
             var curr_path = getPath(children[i]);
             addNewPath(curr_path);
         }
@@ -42,13 +42,13 @@ function addNewPath(path) {
     }
     return paths.get(path);
 }
- 
+
 function getPath(element) {
     let level = 0;
     // If the element has a parent, get the parent's path
     if (element.parentNode) {
         // Append the element's tag name and class name to the parent's path
-        if(element.className) {
+        if (element.className) {
             return getPath(element.parentNode) + '/' + element.tagName + '.' + element.className;
         }
         else if (element.id) {
@@ -80,6 +80,12 @@ function eliminatePaths() {
     //check if the path's occurrence is the same as its parent's occurrence
     //if so, remove it from the map
     for (let [key, value] of paths) {
+        if (value == 1) {
+            paths.delete(key);
+            count++;
+            continue;
+        }
+
         let parent_path = key.substring(0, key.lastIndexOf('/'));
         if (paths.has(parent_path) && paths.get(parent_path) >= value) {
             paths.delete(key);
@@ -89,20 +95,20 @@ function eliminatePaths() {
     console.log("Eliminated " + count + " paths");
 }
 
-function getList(path){
+function getListForAPath(path) {
     //split the path into elements
     let path_items = path.split('/');
     let last_element = path_items[path_items.length - 1];
     let elements = returnByIdentifier(last_element);
 
     let parent_path = "";
-    if( path_items.length > 1){
+    if (path_items.length > 1) {
         parent_path = path_items[path_items.length - 2]
     }
 
     let parent = returnByIdentifier(parent_path.substring(parent_path.lastIndexOf('/') + 1))[0];
     let siblings = [];
-    
+
     for (let i = 0; i < elements.length; i++) {
         if (elements[i].parentNode == parent) {
             siblings.push(elements[i]);
@@ -113,19 +119,20 @@ function getList(path){
             paths.delete(path);
         }
     }
+
     return siblings;
 }
 
 function printMap(map) {
     for (let [key, value] of map) {
-        if(value > 1) {
+        if (value > 1) {
             console.log(key + " = " + value);
         }
     }
 }
 
 function returnByIdentifier(last_element) {
-    if(last_element.indexOf('.') == -1 && last_element.indexOf('#') == -1 && last_element.indexOf('&') == -1) {
+    if (last_element.indexOf('.') == -1 && last_element.indexOf('#') == -1 && last_element.indexOf('&') == -1) {
         return document.getElementsByTagName(last_element);
     }
 
@@ -146,26 +153,26 @@ function returnByIdentifier(last_element) {
     else {
         return [];
     }
-}   
+}
 
-function colorPaths() {
+function savePossibleLists() {
     const colors = ["red", "blue", "green", "yellow", "orange", "purple", "pink", "brown", "black", "white"];
     let j = 0;
     var element_list = [];
     for (let [key, value] of paths) {
-        if(value > 1) {
-            let elements = getList(key);
-            if(elements.length > 1) {
-                for(let i = 0; i < elements.length; i++) {
-                    if(!isParentColored(elements[i])){
-                        elements[i].style.backgroundColor = colors[j];
-                        element_list.push(elements[i]);
-                    }
+        let elements = getListForAPath(key);
+        if (elements.length > 1) {
+            for (let i = 0; i < elements.length; i++) {
+                if (!isParentMarked(elements[i])) {
+                    elements[i].style.backgroundColor = colors[j];
+                    //add attribute to element
+                    elements[i].setAttribute("wfe-check", "checked");
+                    element_list.push(elements[i]);
                 }
-                j++;
-                if(j == colors.length) {
-                    j = 0;
-                }
+            }
+            j++;
+            if (j == colors.length) {
+                j = 0;
             }
         }
     }
@@ -174,33 +181,46 @@ function colorPaths() {
 }
 
 //recursively check if any parent is colored
-function isParentColored(element) {
-    if(element.parentNode) {
-        if(element.parentNode.style && element.parentNode.style.backgroundColor) {
+function isParentMarked(element) {
+    if (element.parentNode) {
+        //is html element
+        if (element.parentNode.tagName == "HTML") {
+            return false;
+        }
+
+        //check if parent has attribute
+        if (element.parentNode.hasAttribute("wfe-check")) {
             return true;
         }
-        return isParentColored(element.parentNode);
+
+        return isParentMarked(element.parentNode);
     }
     return false;
 }
 
-function removeElementFromDOM(text){
+function removeElementFromDOM(text) {
+    let count = 0;
     //remove from DOM if list element contains a text
-    for(let i = 0; i < lists.length; i++) {
-        for(let j = 0; j < lists[i].length; j++) {
-            if(lists[i][j].textContent.indexOf(text) != -1) {
+    for (let i = 0; i < lists.length; i++) {
+        for (let j = 0; j < lists[i].length; j++) {
+            if (lists[i][j].textContent.indexOf(text) != -1) {
                 //remove from DOM
                 console.log("Removed object from DOM: " + text);
                 lists[i][j].parentNode.removeChild(lists[i][j]);
+                count++;
             }
         }
     }
+
+    console.log("Removed " + count + " elements from DOM");
 }
 
 getPaths();
 eliminatePaths();
-colorPaths();
-//printMap(paths);
-removeElementFromDOM("Arama Arama");
+savePossibleLists();
+printMap(paths);
+
+
+
 
 
