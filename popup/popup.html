@@ -1,6 +1,21 @@
+<!DOCTYPE html>
 <html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="./popup.css" />
+  </head>
   <body>
-    <h1>Hello Extensions</h1>
-    <script src="popup.js"></script>
+    <form>
+      <label for="filteredWord">Enter the filtered word:</label><br>
+      <input type="text" id="filteredWord" name="filteredWord"><br>
+    </form>
+    <button id="submitWord">Filter</button>
+    <br><br>
+    <label for="filteredWordsList">Previously Filtered Words:</label>
+    <ul id="filtered-words-list"></ul>
+    <button id="clearList"> Clear List</button>
+    <script src="./popup.js" type="module"></script>
   </body>
 </html>

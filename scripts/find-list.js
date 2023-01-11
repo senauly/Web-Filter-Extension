@@ -2,7 +2,8 @@ var paths = new Map();
 var skippedTags = ['script', 'input', 'header', 'footer', 'nav', 'style', 'meta', 'form', 'td'];
 var skippedRoles = ['radio', 'button', 'checkbox', 'navigation'];
 
-var lists = new Array();
+var filteredPage = new Array();
+var removedElements = new Array();
 
 function traverse(element) {
     // Get the same tagged children of the element
@@ -182,7 +183,7 @@ function savePossibleLists() {
         }
     }
 
-    lists.push(element_list);
+    filteredPage.push(element_list);
 }
 
 //recursively check if any parent is colored
@@ -206,27 +207,63 @@ function isParentMarked(element) {
 function removeElementFromDOM(text) {
     let count = 0;
     //remove from DOM if list element contains a text
-    for (let i = 0; i < lists.length; i++) {
-        for (let j = 0; j < lists[i].length; j++) {
-            if (lists[i][j].textContent.indexOf(text) != -1) {
+    for (let i = 0; i < filteredPage.length; i++) {
+        for (let j = 1; j < filteredPage[i].length; j++) {
+            if (filteredPage[i][j].textContent.toLowerCase().indexOf(text.toLowerCase()) != -1) {
+                //save element information
+                let elementInfo = {
+                    parentNode: filteredPage[i][j].parentNode,
+                    element: filteredPage[i][j].cloneNode(true),
+                    nextSibling: filteredPage[i][j].nextSibling,
+                    listID: i
+                }
+                //add to removedElements
+                removedElements.push(elementInfo);
                 //remove from DOM
-                console.log("Removed object from DOM: " + text);
-                lists[i][j].parentNode.removeChild(lists[i][j]);
+                filteredPage[i][j].parentNode.removeChild(filteredPage[i][j]);
                 count++;
+
             }
+
         }
     }
 
-    console.log("Removed " + count + " elements from DOM");
+   return "Removed " + count + " elements from DOM";
+}
+
+function addRemovedElementsBack(){
+    let count = 0;
+    for (let i = 0; i < removedElements.length; i++) {
+        let elementInfo = removedElements[i];
+        if(elementInfo.nextSibling){
+            elementInfo.parentNode.insertBefore(elementInfo.element, elementInfo.nextSibling);
+        } else {
+            elementInfo.parentNode.appendChild(elementInfo.element);
+        }
+        count++;
+
+        //also add to filteredPage
+        filteredPage[listID].push(elementInfo.element);
+    }
+    console.log("Added " + count + " elements back to list");
 }
 
 // options for the observer (which mutations to observe)
 var config = { childList: true, subtree: true };
 
-// callback function to execute when mutations are observed
 const callback = function (mutationsList, observer) {
     for (let mutation of mutationsList) {
         if (mutation.type === 'childList') {
+            // Retrieve filtered words from local storage
+            chrome.storage.local.get(["filteredWords"], function(result) {
+                let filteredWords = result.filteredWords || [];
+                // Use the filtered words to filter elements on the page
+                for (let i = 0; i < filteredWords.length; i++) {
+                    let filteredWord = filteredWords[i];
+                    removeElementFromDOM(filteredWord);
+                }
+            });
+
             getPaths();
             eliminatePaths();
             savePossibleLists();
@@ -241,11 +278,21 @@ const observer = new MutationObserver(callback);
 // start observing the target node for configured mutations
 observer.observe(document.body, config);
 
+//get the message from popup.js
 chrome.runtime.onMessage.addListener(
-    function(request) {
-        if(request.message === "filter") {
-            // filter the list with the filtered word
-            removeElementFromDOM(request.text);
+    function (request, sender, sendResponse) {
+        if (request.message == "filter") {
+            let response = removeElementFromDOM(request.word);
+            sendResponse({ message: response });
+        }
+    }
+);
+
+chrome.runtime.onMessage.addListener(
+    function (request, sender, sendResponse) {
+        if (request.message == "clear_filtered_words") {
+            let response = addRemovedElementsBack();
+            sendResponse({ message: response });
         }
     }
 );
