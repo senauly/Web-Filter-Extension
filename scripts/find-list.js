@@ -114,7 +114,7 @@ function getListForAPath(path) {
             siblings.push(elements[i]);
         }
     }
-    
+
     let matchFound = false;
     for (let i = 0; i < filteredPage.length; i++) {
         if (JSON.stringify(filteredPage[i]) === JSON.stringify(siblings)) {
@@ -188,7 +188,7 @@ function savePossibleLists() {
         }
     }
 
-    if(!filteredPage.includes(element_list)) filteredPage.push(element_list);
+    if (!filteredPage.includes(element_list)) filteredPage.push(element_list);
 }
 
 //recursively check if any parent is colored
@@ -227,9 +227,23 @@ function removeElementFromDOM(text) {
                 removedElements.push(elementInfo);
                 //remove from DOM
 
-                if(element.parentNode){
+                if (element.parentNode) {
                     element.parentNode.removeChild(element);
                     count++;
+                    
+                    /*
+                    if(element.parentNode && !element.parentNode.childNodes){
+                        //save the parent node
+                        let parentInfo = {
+                            parentNode: element.parentNode.parentNode,
+                            element: element.parentNode.cloneNode(true),
+                            nextSibling: element.parentNode.nextSibling,
+                            listID: i,
+                            parent: true
+                        }
+                        removedElements.push(parentInfo);
+                        element.parentNode.remove();
+                    }*/
                 }
 
             }
@@ -237,48 +251,43 @@ function removeElementFromDOM(text) {
         i++;
     });
 
-   console.log("Removed " + count + " elements from DOM");
+    console.log("Removed " + count + " elements from DOM");
 }
 
-function addRemovedElementsBack(){
-    let count = 0;
-    for (let i = 0; i < removedElements.length; i++) {
-        let elementInfo = removedElements[i];
-        if(elementInfo.parentNode) {
-            if(elementInfo.nextSibling){
-                elementInfo.parentNode.insertBefore(elementInfo.element, elementInfo.nextSibling);
-            } else {
-                elementInfo.parentNode.appendChild(elementInfo.element);
-            }
-            count++;
-            //also add to filteredPage
-            filteredPage[elementInfo.listID].push(elementInfo.element);
 
-            //also remove from removedElements
-            removedElements.splice(i, 1);
+function addRemovedElementsBack(word) {
+    let count = 0;
+
+    for (let i = removedElements.length - 1; i >= 0; i--) {
+        let elementInfo = removedElements[i];
+        if (!word || elementInfo.element.textContent.toLowerCase().indexOf(word.toLowerCase()) !== -1) {
+            let parent = elementInfo.parentNode;
+            while (parent && removedElements.indexOf(parent) !== -1) {
+                parent = parent.parentNode;
+            }
+
+            if (parent) {
+                parent.appendChild(elementInfo.element);
+                removedElements.splice(i, 1);
+                filteredPage[elementInfo.listID].push(elementInfo.element);
+                count++;
+            }
         }
-        
     }
-    console.log("Added " + count + " elements back to list");
+
+    console.log(`Added ${count} elements back to DOM`);
 }
 
-function addGivenRemovedElementsBack(word){
-    let count = 0;
-    for (let i = 0; i < removedElements.length; i++) {
-        let elementInfo = removedElements[i];
-        if(elementInfo.element.textContent.toLowerCase().indexOf(word.toLowerCase()) != -1){
-            if(elementInfo.nextSibling){
-                elementInfo.parentNode.insertBefore(elementInfo.element, elementInfo.nextSibling);
-            } else {
-                elementInfo.parentNode.appendChild(elementInfo.element);
-            }
-            count++;
 
-            //also add to filteredPage
-            filteredPage[elementInfo.listID].push(elementInfo.element);
+function removeAfterRefresh() {
+    // Retrieve filtered words from local storage
+    chrome.storage.local.get(["filteredWords"], function (result) {
+        let filteredWords = result.filteredWords || [];
+        // Use the filtered words to filter elements on the page
+        for (let i = 0; i < filteredWords.length; i++) {
+            removeElementFromDOM(filteredWords[i]);
         }
-    }
-    console.log("Added " + count + " elements back to DOM");
+    });
 }
 
 // options for the observer (which mutations to observe)
@@ -290,6 +299,7 @@ const callback = function (mutationsList, observer) {
             getPaths();
             eliminatePaths();
             savePossibleLists();
+            removeAfterRefresh();
         }
     }
 };
@@ -322,7 +332,7 @@ chrome.runtime.onMessage.addListener(
     function (request, sender, sendResponse) {
         if (request.message == "add_back") {
             //add the elements contain word to the dom
-            addGivenRemovedElementsBack(request.word);
+            addRemovedElementsBack(request.word);
         }
     }
 );
