@@ -1,21 +1,53 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="UTF-8" />
-    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="stylesheet" href="./popup.css" />
-  </head>
-  <body>
-    <form>
-      <label for="filteredWord">Enter the filtered word:</label><br>
-      <input type="text" id="filteredWord" name="filteredWord"><br>
-    </form>
-    <button id="submitWord">Filter</button>
-    <br><br>
-    <label for="filteredWordsList">Previously Filtered Words:</label>
-    <ul id="filtered-words-list"></ul>
-    <button id="clearList"> Clear List</button>
-    <script src="./popup.js" type="module"></script>
-  </body>
+
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- Scripts -->
+  <script src="../scripts/bootstrap.min.js"></script>
+  <script src="../scripts/jquery-3.6.1.min.js"></script>
+
+  <!-- Cascading Style Sheets -->
+  <link href="bootstrap.min.css" rel="stylesheet" media="screen">
+  <link href="popup.css" rel="stylesheet" media="screen">
+</head>
+
+<body>
+  <div class="container">
+    <div class="row">
+      <div class="col-12">
+        <form>
+          <div class="form-group">
+            <label for="filteredWord">
+              <h5>Enter a word to filter:</h5>
+            </label>
+            <input type="text" class="form-control" id="filteredWord" name="filteredWord">
+          </div>
+          <button id="submitWord" class="btn btn-primary mt-3">Filter</button>
+        </form>
+      </div>
+    </div>
+    <hr class="mt-3">
+    <div class="row">
+      <div class="col-12">
+        <label for="filteredWordsList">
+          <h5>Filtered Words:</h5>
+        </label>
+        <div id="filtered-words-list" class="row justify-content-center mt-2"></div>
+        <!-- create template for one word card grid -->
+        <div class="col-12 col-sm-6 col-md-4 col-lg-3 col-xl-2">
+          <button id="clearList" class="btn btn-danger mt-3">Clear</button>
+        </div>
+      </div>
+    </div>
+    <hr class="mt-3">
+    <div class="row mt-2">
+      <button id="learning-mode" class="btn btn-success">Learning Mode</button>
+    </div>
+    <hr class="mt-3">
+    <script src="./popup.js"></script>
+</body>
+
 </html>

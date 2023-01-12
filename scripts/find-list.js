@@ -93,7 +93,6 @@ function eliminatePaths() {
             count++;
         }
     }
-    console.log("Eliminated " + count + " paths");
 }
 
 function getListForAPath(path) {
@@ -114,15 +113,22 @@ function getListForAPath(path) {
         if (elements[i].parentNode == parent) {
             siblings.push(elements[i]);
         }
-
-        else {
-            //remove from path
-            paths.delete(path);
+    }
+    
+    let matchFound = false;
+    for (let i = 0; i < filteredPage.length; i++) {
+        if (JSON.stringify(filteredPage[i]) === JSON.stringify(siblings)) {
+            matchFound = true;
+            break;
         }
     }
+    if (!matchFound) {
+        return siblings;
+    }
 
-    return siblings;
+    return [];
 }
+
 
 function printMap(map) {
     for (let [key, value] of map) {
@@ -172,7 +178,6 @@ function savePossibleLists() {
                 }
 
                 else {
-                    console.log(key);
                     paths.delete(key);
                 }
             }
@@ -183,7 +188,7 @@ function savePossibleLists() {
         }
     }
 
-    filteredPage.push(element_list);
+    if(!filteredPage.includes(element_list)) filteredPage.push(element_list);
 }
 
 //recursively check if any parent is colored
@@ -206,46 +211,74 @@ function isParentMarked(element) {
 
 function removeElementFromDOM(text) {
     let count = 0;
+    let i = 0;
     //remove from DOM if list element contains a text
-    for (let i = 0; i < filteredPage.length; i++) {
-        for (let j = 1; j < filteredPage[i].length; j++) {
-            if (filteredPage[i][j].textContent.toLowerCase().indexOf(text.toLowerCase()) != -1) {
+    filteredPage.forEach(list => {
+        list.forEach(element => {
+            if (element.textContent.toLowerCase().indexOf(text.toLowerCase()) != -1) {
                 //save element information
                 let elementInfo = {
-                    parentNode: filteredPage[i][j].parentNode,
-                    element: filteredPage[i][j].cloneNode(true),
-                    nextSibling: filteredPage[i][j].nextSibling,
+                    parentNode: element.parentNode,
+                    element: element.cloneNode(true),
+                    nextSibling: element.nextSibling,
                     listID: i
                 }
                 //add to removedElements
                 removedElements.push(elementInfo);
                 //remove from DOM
-                filteredPage[i][j].parentNode.removeChild(filteredPage[i][j]);
-                count++;
+
+                if(element.parentNode){
+                    element.parentNode.removeChild(element);
+                    count++;
+                }
 
             }
+        });
+        i++;
+    });
 
-        }
-    }
-
-   return "Removed " + count + " elements from DOM";
+   console.log("Removed " + count + " elements from DOM");
 }
 
 function addRemovedElementsBack(){
     let count = 0;
     for (let i = 0; i < removedElements.length; i++) {
         let elementInfo = removedElements[i];
-        if(elementInfo.nextSibling){
-            elementInfo.parentNode.insertBefore(elementInfo.element, elementInfo.nextSibling);
-        } else {
-            elementInfo.parentNode.appendChild(elementInfo.element);
-        }
-        count++;
+        if(elementInfo.parentNode) {
+            if(elementInfo.nextSibling){
+                elementInfo.parentNode.insertBefore(elementInfo.element, elementInfo.nextSibling);
+            } else {
+                elementInfo.parentNode.appendChild(elementInfo.element);
+            }
+            count++;
+            //also add to filteredPage
+            filteredPage[elementInfo.listID].push(elementInfo.element);
 
-        //also add to filteredPage
-        filteredPage[listID].push(elementInfo.element);
+            //also remove from removedElements
+            removedElements.splice(i, 1);
+        }
+        
     }
     console.log("Added " + count + " elements back to list");
+}
+
+function addGivenRemovedElementsBack(word){
+    let count = 0;
+    for (let i = 0; i < removedElements.length; i++) {
+        let elementInfo = removedElements[i];
+        if(elementInfo.element.textContent.toLowerCase().indexOf(word.toLowerCase()) != -1){
+            if(elementInfo.nextSibling){
+                elementInfo.parentNode.insertBefore(elementInfo.element, elementInfo.nextSibling);
+            } else {
+                elementInfo.parentNode.appendChild(elementInfo.element);
+            }
+            count++;
+
+            //also add to filteredPage
+            filteredPage[elementInfo.listID].push(elementInfo.element);
+        }
+    }
+    console.log("Added " + count + " elements back to DOM");
 }
 
 // options for the observer (which mutations to observe)
@@ -254,20 +287,9 @@ var config = { childList: true, subtree: true };
 const callback = function (mutationsList, observer) {
     for (let mutation of mutationsList) {
         if (mutation.type === 'childList') {
-            // Retrieve filtered words from local storage
-            chrome.storage.local.get(["filteredWords"], function(result) {
-                let filteredWords = result.filteredWords || [];
-                // Use the filtered words to filter elements on the page
-                for (let i = 0; i < filteredWords.length; i++) {
-                    let filteredWord = filteredWords[i];
-                    removeElementFromDOM(filteredWord);
-                }
-            });
-
             getPaths();
             eliminatePaths();
             savePossibleLists();
-            printMap(paths);
         }
     }
 };
@@ -282,8 +304,7 @@ observer.observe(document.body, config);
 chrome.runtime.onMessage.addListener(
     function (request, sender, sendResponse) {
         if (request.message == "filter") {
-            let response = removeElementFromDOM(request.word);
-            sendResponse({ message: response });
+            removeElementFromDOM(request.word);
         }
     }
 );
@@ -291,8 +312,17 @@ chrome.runtime.onMessage.addListener(
 chrome.runtime.onMessage.addListener(
     function (request, sender, sendResponse) {
         if (request.message == "clear_filtered_words") {
-            let response = addRemovedElementsBack();
-            sendResponse({ message: response });
+            addRemovedElementsBack();
+        }
+    }
+);
+
+//get the message from popup.js
+chrome.runtime.onMessage.addListener(
+    function (request, sender, sendResponse) {
+        if (request.message == "add_back") {
+            //add the elements contain word to the dom
+            addGivenRemovedElementsBack(request.word);
         }
     }
 );

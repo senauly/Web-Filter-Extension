@@ -1,0 +1,25 @@
+body{
+    width: 400px;
+    height: 400px;
+    padding: 2%;
+}
+
+.btn-close {
+    width: 0.05rem;
+    position: absolute;
+    top: 0;
+    right: 0;
+    margin-right: 5%;
+}
+
+.card-header {
+    font-size: 0.8em;
+    border-bottom: 0;
+    position: relative;
+    text-align: center;
+}
+
+h5 {
+    font-size: 1em;
+    font-weight: bold;
+}
