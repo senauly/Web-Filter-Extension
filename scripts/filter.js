@@ -1,3 +1,5 @@
+/*search and save lists logic */
+
 function traverse(element) {
     // Get the same tagged children of the element
     const children = element.children;
@@ -6,7 +8,6 @@ function traverse(element) {
     for (let i = 0; i < children.length; i++) {
         // Traverse each child
         //check if the tag is in the skippedTags array
-        let occur = 0;
         if (skippedTags.includes(children[i].tagName.toLowerCase())) {
             continue;
         }
@@ -38,7 +39,6 @@ function addNewPath(path) {
 }
 
 function getPath(element) {
-    let level = 0;
     // If the element has a parent, get the parent's path
     if (element.parentNode) {
         // Append the element's tag name and class name to the parent's path
@@ -57,25 +57,25 @@ function getPath(element) {
 }
 
 function getPaths() {
+    //get elements with ol and ul tag name
+    let list = Array.from(document.body.getElementsByTagName('li'));
+    filteredPage.push(list);
     traverse(document.body);
     return paths;
 }
 
 function eliminatePaths() {
-    let count = 0;
     //check if the path's occurrence is the same as its parent's occurrence
     //if so, remove it from the map
     for (let [key, value] of paths) {
-        if (value == 1) {
+        if (value < 4) {
             paths.delete(key);
-            count++;
             continue;
         }
 
         let parent_path = key.substring(0, key.lastIndexOf('/'));
         if (paths.has(parent_path) && paths.get(parent_path) >= value) {
             paths.delete(key);
-            count++;
         }
     }
 }
@@ -102,7 +102,7 @@ function getListForAPath(path) {
 
     let matchFound = false;
     for (let i = 0; i < filteredPage.length; i++) {
-        if (JSON.stringify(filteredPage[i]) === JSON.stringify(siblings)) {
+        if (filteredPage[i].length == siblings.length && filteredPage[i].every((value, index) => value === siblings[index])) {
             matchFound = true;
             break;
         }
@@ -112,15 +112,6 @@ function getListForAPath(path) {
     }
 
     return [];
-}
-
-
-function printMap(map) {
-    for (let [key, value] of map) {
-        if (value > 1) {
-            console.log(key + " = " + value);
-        }
-    }
 }
 
 function returnByIdentifier(last_element) {
@@ -181,78 +172,109 @@ function isParentMarked(element) {
     return false;
 }
 
+/* remove and add logic */
+
 function removeElementFromDOM(text) {
-    let count = 0;
-    let i = 0;
-    //remove from DOM if list element contains a text
-    filteredPage.forEach(list => {
-        list.forEach(element => {
-            if (element.getAttribute("wfe-check") != "hidden" &&
-                element.textContent.toLowerCase().indexOf(text.toLowerCase()) != -1) {
-                if (element.parentNode) {
-                    //element.style.setProperty("filter", "blur(10px)");
-                    element.style.setProperty("display", "none");
-                    //add attribute to element
-                    element.setAttribute("wfe-check", "hidden");
-
-                    count++;
-
-                    if (element.parentNode && !element.parentNode.childNodes) {
-                        //check if all child nodes are hidden
-                        let allHidden = true;
-                        for (let i = 0; i < element.parentNode.childNodes.length; i++) {
-                            //check the wfe-check value
-                            if (element.parentNode.childNodes[i].getAttribute("wfe-check") != "hidden") {
-                                allHidden = false;
-                                break;
-                            }
+    chrome.storage.local.get("blur", function (data) {
+        let blur = data.blur;
+        //remove from DOM if list element contains a text
+        filteredPage.forEach(list => {
+            list.forEach(element => {
+                if (element.getAttribute("wfe-check") != "hidden" &&
+                    element.textContent.toLowerCase().indexOf(text.toLowerCase()) != -1) {
+                    if (element.parentNode) {
+                        if (blur) {
+                            element.style.setProperty("filter", "blur(10px)");
+                        }
+                        else {
+                            element.style.setProperty("display", "none");
                         }
 
-                        if (allHidden) {
-                            element.parentNode.style.setProperty("display", "none");
-                            element.parentNode.setAttribute("wfe-check", "hiddenParent");
+                        //add attribute to element
+                        element.setAttribute("wfe-check", "hidden");
+
+                        if (element.parentNode && !element.parentNode.childNodes) {
+                            //check if all child nodes are hidden
+                            let allHidden = true;
+                            for (let i = 0; i < element.parentNode.childNodes.length; i++) {
+                                //check the wfe-check value
+                                if (element.parentNode.childNodes[i].getAttribute("wfe-check") != "hidden") {
+                                    allHidden = false;
+                                    break;
+                                }
+                            }
+
+                            if (allHidden) {
+                                element.parentNode.style.setProperty("display", "none");
+                                element.parentNode.setAttribute("wfe-check", "hiddenParent");
+                            }
                         }
                     }
                 }
-            }
+            });
         });
-        i++;
     });
 }
 
 
 function addRemovedElementsBack(word) {
-    let count = 0;
-    var addBack = false;
-    //get all the elements with the attribute and check value
+    //get blur from storage
+    chrome.storage.local.get("blur", function (data) {
+        let blur = data.blur;
+        var addBack = false;
+        //get all the elements with the attribute and check value
 
-    let elements = document.querySelectorAll('[wfe-check="hidden"]');
-    for (let i = 0; i < elements.length; i++) {
-        if (word && elements[i].textContent && elements[i].textContent.toLowerCase().indexOf(word.toLowerCase()) != -1) {
-            addBack = true;
-        }
-
-        else if (!word) {
-            addBack = true;
-        }
-
-        if (addBack) {
-            if (elements[i].parentNode && elements[i].parentNode.getAttribute("wfe-check") == "hiddenParent") {
-                elements[i].parentNode.style.setProperty("display", "block");
-                elements[i].parentNode.removeAttribute("wfe-check");
+        let elements = document.querySelectorAll('[wfe-check="hidden"]');
+        for (let i = 0; i < elements.length; i++) {
+            if (word && elements[i].textContent && elements[i].textContent.toLowerCase().indexOf(word.toLowerCase()) != -1) {
+                addBack = true;
             }
 
-            elements[i].style.setProperty("display", "block");
-            elements[i].removeAttribute("wfe-check");
-            count++;
+            else if (!word) {
+                addBack = true;
+            }
+
+            if (addBack) {
+                if (elements[i].parentNode && elements[i].parentNode.getAttribute("wfe-check") == "hiddenParent") {
+                    //remove style 
+                    elements[i].parentNode.style.setProperty("display", "");
+                    elements[i].parentNode.removeAttribute("wfe-check");
+
+                    if(blur) {
+                        elements[i].parentNode.style.setProperty("filter", "none");
+                    }
+                }
+
+                elements[i].style.setProperty("display", "");
+                elements[i].removeAttribute("wfe-check");
+
+                if(blur) {
+                    elements[i].style.setProperty("filter", "none");
+                }
+            }
         }
+    });
+}
+
+function blurElements() {
+    let elements = document.querySelectorAll('[wfe-check="hidden"]');
+    for (let i = 0; i < elements.length; i++) {
+        elements[i].style.setProperty("filter", "blur(10px)");
+        elements[i].style.setProperty("display", "");
     }
 }
 
+function unblurElements() {
+    let elements = document.querySelectorAll('[wfe-check="hidden"]');
+    for (let i = 0; i < elements.length; i++) {
+        elements[i].style.setProperty("filter", "none");
+        elements[i].style.setProperty("display", "none");
+    }
+}
 
 function removeAfterRefresh() {
-    // Retrieve filtered words from sync storage
-    chrome.storage.sync.get(["filteredWords"], function (result) {
+    // Retrieve filtered words from local storage
+    chrome.storage.local.get(["filteredWords"], function (result) {
         let filteredWords = result.filteredWords || [];
         // Use the filtered words to filter elements on the page
         for (let i = 0; i < filteredWords.length; i++) {
@@ -274,6 +296,8 @@ function colorizeLists() {
         i++;
     });
 }
+
+/* learning mode logic */
 
 function learnElement(parentNode, firstElement) {
     //colorize the childNodes of the element
@@ -300,7 +324,7 @@ function findParentOfRepeatedElements(element) {
 
     while (element) {
         let parent = element.parentNode;
-        if(!parent){
+        if (!parent) {
             return null;
         }
         let siblings = parent.children;
@@ -335,7 +359,7 @@ function getAttributesOfTheElements(element) {
             for (let i = 0; i < element.childNodes.length; i++) {
                 if (element.childNodes[i].nodeType == 1) {
                     for (let j = 0; j < element.childNodes[i].attributes.length; j++) {
-                        if(element.childNodes[i].attributes[j].name != "wfe-check" || element.childNodes[i].attributes[j].name != "style"){
+                        if (element.childNodes[i].attributes[j].name != "wfe-check" || element.childNodes[i].attributes[j].name != "style") {
                             var attribute = element.childNodes[i].attributes[j].name + " = " + element.childNodes[i].attributes[j].value;
                             attributes.add(attribute);
                         }
@@ -356,7 +380,7 @@ function saveLearnedElements() {
     var currentDomain = window.location.hostname;
 
     //get the learned elements from the storage and check if this domain is already in the storage
-    chrome.storage.sync.get(["learnedElements"], function (result) {
+    chrome.storage.local.get(["learnedElements"], function (result) {
         var learnedElementsData = result.learnedElements || { domain: "", attributes: [] };
         if (learnedElementsData.domain == currentDomain) {
             //add the new learned elements to the existing ones
@@ -368,8 +392,8 @@ function saveLearnedElements() {
                 attributes: Array.from(attributes)
             };
         }
-        // Save the object to the sync storage
-        chrome.storage.sync.set({ "learnedElements": learnedElementsData });
+        // Save the object to the local storage
+        chrome.storage.local.set({ "learnedElements": learnedElementsData });
     });
 
     //refresh the page
@@ -397,8 +421,9 @@ function getElementsWithAttributes(attributes) {
     filteredPage.push(elements);
 }
 
+
 var paths = new Map();
-var skippedTags = ['script', 'input', 'header', 'footer', 'nav', 'style', 'meta', 'form', 'td'];
+var skippedTags = ['script', 'input', 'header', 'footer', 'nav', 'style', 'meta', 'form', 'td', 'li'];
 var skippedRoles = ['radio', 'button', 'checkbox', 'navigation'];
 
 var filteredPage = new Array();
@@ -408,13 +433,12 @@ var learning_mode = false;
 var learned_elements = false;
 var learnedAttributes = new Array();
 
-//get mode from sync storage
-chrome.storage.sync.get(["learning_mode"], function (result) {
+//get mode from local storage
+chrome.storage.local.get(["learning_mode"], function (result) {
     learning_mode = result.learning_mode;
     if (!learning_mode) {
-
         //get the learned elements from the storage and check if this domain is in the storage
-        chrome.storage.sync.get(["learnedElements"], function (result) {
+        chrome.storage.local.get(["learnedElements"], function (result) {
             var learnedElementsData = result.learnedElements || { domain: "", attributes: [] };
             if (learnedElementsData.domain == window.location.hostname) {
                 //filtered page is the learned elements
@@ -423,11 +447,18 @@ chrome.storage.sync.get(["learning_mode"], function (result) {
             }
         });
 
-        var config = { childList: true, subtree: true };
+        if(learned_elements){
+            var config = { childList: true, attributes: true, attributeFilter: learnedAttributes };
+        }
+
+        else{
+            var config = { childList: true, subtree: true };
+        }
 
         const callback = function (mutationsList, observer) {
             for (let mutation of mutationsList) {
                 if (mutation.type === 'childList') {
+                    //get the blur from storage
                     if (learned_elements) {
                         getElementsWithAttributes(learnedAttributes);
                         removeAfterRefresh();
@@ -449,7 +480,6 @@ chrome.storage.sync.get(["learning_mode"], function (result) {
         // start observing the target node for configured mutations
         observer.observe(document.body, config);
 
-        //get the message from popup.js
         chrome.runtime.onMessage.addListener(
             function (request, sender, sendResponse) {
                 if (request.message == "filter") {
@@ -466,7 +496,6 @@ chrome.storage.sync.get(["learning_mode"], function (result) {
             }
         );
 
-        //get the message from popup.js
         chrome.runtime.onMessage.addListener(
             function (request, sender, sendResponse) {
                 if (request.message == "add_back") {
@@ -476,13 +505,24 @@ chrome.storage.sync.get(["learning_mode"], function (result) {
             }
         );
 
+        chrome.storage.onChanged.addListener(function (changes, namespace) {
+            if (changes.blur) {
+                if (changes.blur.newValue) {
+                    blurElements();
+                } else {
+                    unblurElements();
+                }
+            }
+        });
+
+
         chrome.runtime.onMessage.addListener(
             function (request, sender, sendResponse) {
                 if (request.message == "learning_mode") {
                     learning_mode = true;
                     observer.disconnect();
-                    //set sync storage 
-                    chrome.storage.sync.set({ learning_mode: true });
+                    //set local storage 
+                    chrome.storage.local.set({ learning_mode: true });
                     var hoveredElement;
 
                     document.body.addEventListener("mouseover", function (event) {
@@ -507,6 +547,20 @@ chrome.storage.sync.get(["learning_mode"], function (result) {
                                 element.removeAttribute("wfe-check");
                                 element.style.backgroundColor = "";
                             });
+                        }
+
+                        if(event.code === "KeyR" && event.ctrlKey){
+                            //reset learning mode
+                            if(confirm("Previously learned elements for this domain will be reseted. Do you want to continue?")){
+                                //reset the learned elements for this domain only
+                                chrome.storage.local.get(["learnedElements"], function (result) {
+                                    var learnedElementsData = result.learnedElements || { domain: "", attributes: [] };
+                                    if (learnedElementsData.domain == window.location.hostname) {
+                                        learnedElementsData.attributes = [];
+                                        chrome.storage.local.set({ "learnedElements": learnedElementsData });
+                                    }
+                                });
+                            }
                         }
                     });
 

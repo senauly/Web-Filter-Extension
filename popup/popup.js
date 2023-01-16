@@ -9,7 +9,7 @@ document.addEventListener("DOMContentLoaded", function () {
         }
     });
 
-    chrome.storage.sync.get(["learning_mode"], function (result) {
+    chrome.storage.local.get(["learning_mode"], function (result) {
         if (result.learning_mode) {
             document.getElementById("stop-learning").className = "btn btn-warning";
             document.getElementById("learning-info").className = "row mt-2";
@@ -18,7 +18,13 @@ document.addEventListener("DOMContentLoaded", function () {
 
         if(result.learning_mode == null || result.learning_mode == undefined){
             //set storage
-            chrome.storage.sync.set({ "learning_mode": false });
+            chrome.storage.local.set({ "learning_mode": false });
+        }
+    });
+
+    chrome.storage.local.get(["blur"], function (result) {
+        if (result.blur) {
+            blurCheckbox.checked = true;
         }
     });
 });
@@ -32,8 +38,8 @@ document.getElementById("learning-mode").addEventListener("click", function () {
             chrome.tabs.sendMessage(tabs[0].id, { message: "learning_mode" });
         });
 
-        //set sync storage
-        chrome.storage.sync.set({ "learning_mode": true });
+        //set local storage
+        chrome.storage.local.set({ "learning_mode": true });
 
         document.getElementById("stop-learning").className = "btn btn-warning";
         document.getElementById("learning-mode").className = "d-none btn btn-success";
@@ -50,7 +56,7 @@ document.getElementById("stop-learning").addEventListener("click", function () {
             chrome.tabs.sendMessage(tabs[0].id, { message: "stop_learning_mode" });
         });
 
-        chrome.storage.sync.set({ "learning_mode": false });
+        chrome.storage.local.set({ "learning_mode": false });
         document.getElementById("stop-learning").className = "d-none btn btn-warning";
         document.getElementById("learning-mode").className = "btn btn-success";
         document.getElementById("learning-info").className = "d-none row mt-2";
@@ -63,10 +69,23 @@ document.getElementById("clearList").addEventListener("click", function () {
         chrome.tabs.sendMessage(tabs[0].id, { message: "clear_filtered_words" });
     });
 
-    chrome.storage.sync.clear();
+    chrome.storage.local.clear();
     location.reload();
     displayFilteredWords();
 });
+
+const blurCheckbox = document.getElementById("blur");
+
+blurCheckbox.addEventListener("change", function () {
+    if (blurCheckbox.checked) {
+        //set local storage
+        chrome.storage.local.set({ "blur": true });
+    } else {
+        //set local storage
+        chrome.storage.local.set({ "blur": false });
+    }
+});
+
 
 function filter() {
     var filteredWord = document.getElementById("filteredWord").value;
@@ -85,17 +104,17 @@ function filter() {
     document.getElementById("filteredWord").value = "";
 }
 
-// Save filtered word to sync storage
+// Save filtered word to local storage
 function saveFilteredWord(filteredWord) {
-    chrome.storage.sync.get(["filteredWords"], function (result) {
+    chrome.storage.local.get(["filteredWords"], function (result) {
         let filteredWords = result.filteredWords || [];
         if (filteredWords.includes(filteredWord)) {
             return;
         }
 
         filteredWords.push(filteredWord);
-        chrome.storage.sync.set({ "filteredWords": filteredWords }, function () {
-            console.log(filteredWord + " saved to sync storage.");
+        chrome.storage.local.set({ "filteredWords": filteredWords }, function () {
+            console.log(filteredWord + " saved to local storage.");
             displayFilteredWords();
         });
 
@@ -112,7 +131,11 @@ function createFilteredWordElement(word) {
     //card header with button
     let cardHeader = document.createElement('div');
     cardHeader.className = 'card-header d-flex justify-content-center';
-    cardHeader.innerText = word.toLowerCase();
+    
+    //create a text element
+    let cardText = document.createElement('span');
+    cardText.innerText = word.length > 20 ? word.substring(0, 20).toLowerCase() + "..." : word.toLowerCase();
+    cardHeader.appendChild(cardText);
 
     let removeButton = document.createElement("button");
     removeButton.className = "btn-close";
@@ -125,11 +148,20 @@ function createFilteredWordElement(word) {
     card.appendChild(cardHeader);
 
     col.appendChild(card);
+
+    cardHeader.addEventListener("mouseover", function () {
+        cardText.innerText = word.toLowerCase();
+    });
+    
+    cardHeader.addEventListener("mouseout", function () {
+        cardText.innerText = word.length > 20 ? word.substring(0, 20).toLowerCase() + "..." : word.toLowerCase();
+    });
+    
     return col;
 }
 
 function displayFilteredWords() {
-    chrome.storage.sync.get(["filteredWords"], function (result) {
+    chrome.storage.local.get(["filteredWords"], function (result) {
         let filteredWords = result.filteredWords || [];
         let filteredWordsList = document.getElementById("filtered-words-list");
         filteredWordsList.innerHTML = "";
@@ -152,7 +184,7 @@ function displayFilteredWords() {
 
 
 function removeFilteredWord(word) {
-    chrome.storage.sync.get(["filteredWords"], function (result) {
+    chrome.storage.local.get(["filteredWords"], function (result) {
         let filteredWords = result.filteredWords || [];
         let index = filteredWords.indexOf(word);
         if (index !== -1) {
@@ -161,8 +193,8 @@ function removeFilteredWord(word) {
             });
 
             filteredWords.splice(index, 1);
-            chrome.storage.sync.set({ "filteredWords": filteredWords }, function () {
-                console.log(word + " removed from sync storage.");
+            chrome.storage.local.set({ "filteredWords": filteredWords }, function () {
+                console.log(word + " removed from local storage.");
                 displayFilteredWords();
             });
         }
