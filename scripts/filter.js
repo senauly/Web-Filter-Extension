@@ -73,14 +73,6 @@ function getPath(element) {
 
 
 function getPaths(element) {
-    //get elements with ol and ul tag name
-    //let list = Array.from(document.body.getElementsByTagName('li'));
-    //filteredPage.push(list);
-    var elements = document.body.getElementsByTagName('li');
-    //add elements to the filteredPage Set
-    for (let i = 0; i < elements.length; i++) {
-        filteredPage.add(elements[i]);
-    }
     traverse(element);
     return paths;
 }
@@ -104,7 +96,7 @@ function eliminatePaths() {
 function savePossibleLists() {
     for (let [key, value] of paths) {
         let elements = document.querySelectorAll(key);
-        if (elements.length > 1) {
+        if (elements && elements.length > 1) {
             for (let i = 0; i < elements.length; i++) {
                 if (!isParentMarked(elements[i])) {
                     elements[i].setAttribute("wfe-check", "checked");
@@ -429,7 +421,7 @@ function testFilterWords(len) {
 
 
 var paths = new Map();
-var skippedTags = ['script', 'input', 'header', 'footer', 'nav', 'style', 'meta', 'form', 'td', 'li'];
+var skippedTags = ['script', 'input', 'header', 'footer', 'nav', 'style', 'meta', 'form', 'td'];
 var skippedRoles = ['radio', 'button', 'checkbox', 'navigation'];
 
 var filteredPage = new Set();
