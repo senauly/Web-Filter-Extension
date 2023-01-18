@@ -11,10 +11,12 @@ document.addEventListener("DOMContentLoaded", function () {
 
     chrome.storage.local.get(["learning_mode"], function (result) {
         if (result.learning_mode) {
-            prepareLearningMode(true);
+            document.getElementById("stop-learning").className = "btn btn-warning";
+            document.getElementById("learning-info").className = "row mt-2";
+            document.getElementById("learning-mode").className = "d-none btn btn-success";
         }
 
-        if (result.learning_mode == null || result.learning_mode == undefined) {
+        if(result.learning_mode == null || result.learning_mode == undefined){
             //set storage
             chrome.storage.local.set({ "learning_mode": false });
         }
@@ -27,7 +29,6 @@ document.addEventListener("DOMContentLoaded", function () {
     });
 });
 
-
 document.getElementById("learning-mode").addEventListener("click", function () {
 
     //ask user if they want to continue
@@ -39,7 +40,10 @@ document.getElementById("learning-mode").addEventListener("click", function () {
 
         //set local storage
         chrome.storage.local.set({ "learning_mode": true });
-        prepareLearningMode(true);
+
+        document.getElementById("stop-learning").className = "btn btn-warning";
+        document.getElementById("learning-mode").className = "d-none btn btn-success";
+        document.getElementById("learning-info").className = "row mt-2";
     }
 });
 
@@ -48,14 +52,14 @@ document.getElementById("stop-learning").addEventListener("click", function () {
     var r = confirm("Do you want to disable the learning mode? Your selections will be saved.");
 
     if (r) {
-        const addOnCheck = document.getElementById("add-on");
-
         chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-            chrome.tabs.sendMessage(tabs[0].id, { message: "stop_learning_mode", addOn: addOnCheck.checked ? true : false });
+            chrome.tabs.sendMessage(tabs[0].id, { message: "stop_learning_mode" });
         });
 
         chrome.storage.local.set({ "learning_mode": false });
-        prepareLearningMode(false);
+        document.getElementById("stop-learning").className = "d-none btn btn-warning";
+        document.getElementById("learning-mode").className = "btn btn-success";
+        document.getElementById("learning-info").className = "d-none row mt-2";
     }
 
 });
@@ -127,7 +131,7 @@ function createFilteredWordElement(word) {
     //card header with button
     let cardHeader = document.createElement('div');
     cardHeader.className = 'card-header d-flex justify-content-center';
-
+    
     //create a text element
     let cardText = document.createElement('span');
     cardText.innerText = word.length > 20 ? word.substring(0, 20).toLowerCase() + "..." : word.toLowerCase();
@@ -148,11 +152,11 @@ function createFilteredWordElement(word) {
     cardHeader.addEventListener("mouseover", function () {
         cardText.innerText = word.toLowerCase();
     });
-
+    
     cardHeader.addEventListener("mouseout", function () {
         cardText.innerText = word.length > 20 ? word.substring(0, 20).toLowerCase() + "..." : word.toLowerCase();
     });
-
+    
     return col;
 }
 
@@ -195,11 +199,4 @@ function removeFilteredWord(word) {
             });
         }
     });
-}
-
-function prepareLearningMode(display) {
-    document.getElementById("stop-learning").className = "btn btn-warning" + (display ? "" : " d-none");
-    document.getElementById("learning-info").className = "row mt-2" + (display ? "" : " d-none");
-    document.getElementById("learning-mode").className = "d-none btn btn-success" + (display ? "" : " d-none");
-    document.getElementById("add-on-wrappper").className = "form-group form-check form-switch mt-3" + (display ? "" : " d-none");
 }

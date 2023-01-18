@@ -189,41 +189,37 @@ function removeElementFromDOM(text) {
                 if (element.getAttribute("wfe-check") != "hidden" &&
                     element.textContent.toLowerCase().indexOf(text.toLowerCase()) != -1) {
                     if (element.parentNode) {
-                        removeElement(element);
+                        if (blur) {
+                            element.style.setProperty("filter", "blur(10px)");
+                        }
+                        else {
+                            element.style.setProperty("display", "none");
+                        }
+
+                        //add attribute to element
+                        element.setAttribute("wfe-check", "hidden");
+
+                        if (element.parentNode && !element.parentNode.childNodes) {
+                            //check if all child nodes are hidden
+                            let allHidden = true;
+                            for (let i = 0; i < element.parentNode.childNodes.length; i++) {
+                                //check the wfe-check value
+                                if (element.parentNode.childNodes[i].getAttribute("wfe-check") != "hidden") {
+                                    allHidden = false;
+                                    break;
+                                }
+                            }
+
+                            if (allHidden) {
+                                element.parentNode.style.setProperty("display", "none");
+                                element.parentNode.setAttribute("wfe-check", "hiddenParent");
+                            }
+                        }
                     }
                 }
             });
         });
     });
-}
-
-function removeElement(element) {
-    if (blur) {
-        element.style.setProperty("filter", "blur(10px)");
-    }
-    else {
-        element.style.setProperty("display", "none");
-    }
-
-    //add attribute to element
-    element.setAttribute("wfe-check", "hidden");
-
-    if (element.parentNode && !element.parentNode.childNodes) {
-        //check if all child nodes are hidden
-        let allHidden = true;
-        for (let i = 0; i < element.parentNode.childNodes.length; i++) {
-            //check the wfe-check value
-            if (element.parentNode.childNodes[i].getAttribute("wfe-check") != "hidden") {
-                allHidden = false;
-                break;
-            }
-        }
-
-        if (allHidden) {
-            element.parentNode.style.setProperty("display", "none");
-            element.parentNode.setAttribute("wfe-check", "hiddenParent");
-        }
-    }
 }
 
 
@@ -385,7 +381,8 @@ function getAttributesOfTheElements(element) {
     return attributes;
 }
 
-function saveLearnedElements(add_on) {
+function saveLearnedElements() {
+
     var attributes = getAttributesOfTheElements();
     if (attributes.size == 0) window.location.reload();
     // Get the current website's domain
@@ -401,8 +398,7 @@ function saveLearnedElements(add_on) {
             //create a new object
             learnedElementsData = {
                 domain: currentDomain,
-                attributes: Array.from(attributes),
-                addOn: add_on
+                attributes: Array.from(attributes)
             };
         }
         // Save the object to the local storage
@@ -428,7 +424,7 @@ function getElementsWithAttributes(attributes) {
             case "class":
                 elementsWithAttribute = document.getElementsByClassName(attributeValue);
                 break;
-
+                
             case "id":
                 var element = document.getElementById(attributeValue);
                 if (element) {
@@ -458,10 +454,11 @@ var filteredPage = new Array();
 var removedElements = new Array();
 
 var learning_mode = false;
-var mode = 0; //0: base mode, 1: filtering mode 2: base + learning mode
+var learned_elements = false;
 var learnedAttributes = new Array();
 
 //get mode from local storage
+var start = performance.now();
 chrome.storage.local.get(["learning_mode"], function (result) {
     learning_mode = result.learning_mode;
     if (!learning_mode) {
@@ -472,20 +469,12 @@ chrome.storage.local.get(["learning_mode"], function (result) {
                 //filtered page is the learned elements
                 if (learnedElementsData.attributes.length > 0) {
                     learnedAttributes = learnedElementsData.attributes;
-                    console.log(learnedElementsData.addOn);
-                    if (learnedElementsData.addOn) {
-                        mode = 2;
-                    }
-
-                    else {
-                        mode = 1;
-                    }
-
+                    learned_elements = true;
                 }
             }
         });
 
-        if (mode == 1 || mode == 2) {
+        if (learned_elements) {
             var config = { childList: true, attributes: true, attributeFilter: learnedAttributes };
         }
 
@@ -496,15 +485,18 @@ chrome.storage.local.get(["learning_mode"], function (result) {
         const callback = function (mutationsList, observer) {
             for (let mutation of mutationsList) {
                 if (mutation.type === 'childList') {
-                    if (mode == 1 || mode == 2) {
+                    //get the blur from storage
+                    if (learned_elements) {
                         getElementsWithAttributes(learnedAttributes);
+                        removeAfterRefresh();
                     }
-                    if (mode == 0 || mode == 2) {
+
+                    else {
                         getPaths();
                         eliminatePaths();
                         savePossibleLists();
+                        removeAfterRefresh();
                     }
-                    removeAfterRefresh();
                 }
             }
         };
@@ -550,6 +542,7 @@ chrome.storage.local.get(["learning_mode"], function (result) {
                 }
             }
         });
+
 
         chrome.runtime.onMessage.addListener(
             function (request, sender, sendResponse) {
@@ -602,7 +595,7 @@ chrome.storage.local.get(["learning_mode"], function (result) {
                     chrome.runtime.onMessage.addListener(
                         function (request, sender, sendResponse) {
                             if (request.message == "stop_learning_mode") {
-                                saveLearnedElements(request.addOn);
+                                saveLearnedElements();
                             }
                         }
                     );
