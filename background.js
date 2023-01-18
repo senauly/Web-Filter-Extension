@@ -9,12 +9,3 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
         if (!domRes) return;
     }
 });
-
-chrome.runtime.onInstalled.addListener(async () => {
-    for (const tab of await chrome.tabs.query({ url: chrome.runtime.getManifest().host_permissions })) {
-        chrome.scripting.executeScript({
-            target: { tabId: tab.id },
-            files: ['scripts/filter.js']
-        });
-    }
-});
