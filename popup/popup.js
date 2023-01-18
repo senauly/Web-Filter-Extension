@@ -187,15 +187,14 @@ function removeFilteredWord(word) {
     chrome.storage.local.get(["filteredWords"], function (result) {
         let filteredWords = result.filteredWords || [];
         let index = filteredWords.indexOf(word);
-        if (index !== -1) {
-            chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
-                chrome.tabs.sendMessage(tabs[0].id, { message: "add_back", word: word });
-            });
-
+        if (index !== -1){
             filteredWords.splice(index, 1);
             chrome.storage.local.set({ "filteredWords": filteredWords }, function () {
                 console.log(word + " removed from local storage.");
                 displayFilteredWords();
+                chrome.tabs.query({ active: true, currentWindow: true }, function (tabs) {
+                    chrome.tabs.sendMessage(tabs[0].id, { message: "add_back", word: word });
+                });
             });
         }
     });

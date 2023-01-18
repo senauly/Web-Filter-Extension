@@ -2,12 +2,12 @@
 
 function traverse(element) {
     // Get the same tagged children of the element
-    if(element.getAttribute['wfe-check']) return;
-    if(element.nodeType != 1) return;
-    if(!element.textContent) return;
+    if (element.getAttribute['wfe-check']) return;
+    if (element.nodeType != 1) return;
+    if (!element.textContent) return;
 
     const children = element.children;
-    if(!children) return;
+    if (!children) return;
 
     // Loop through the children
     for (let i = 0; i < children.length; i++) {
@@ -45,22 +45,32 @@ function addNewPath(path) {
 }
 
 function getPath(element) {
+    if (!(element instanceof Element)) {
+        throw new Error("Expected a DOM element as argument.");
+    }
+    // Check if the element is the HTML element
+    if (element.tagName === 'HTML') {
+        return element.tagName;
+    }
     // If the element has a parent, get the parent's path
     if (element.parentNode) {
         // Append the element's tag name and class name to the parent's path
-        if (element.className) {
-            return getPath(element.parentNode) + '/' + element.tagName + '.' + element.className;
-        }
-        else if (element.id) {
-            return getPath(element.parentNode) + '/' + element.tagName + '#' + element.id;
+        let path = getPath(element.parentNode) + ' > ' + element.tagName;
+
+        if (element.classList.length > 0) {
+            path += '.' + Array.from(element.classList).join('.');
+        }        
+
+        if (element.id) {
+            path += '#' + element.id;
         }
 
-        return getPath(element.parentNode) + '/' + element.tagName;
-
+        return path;
     } else {
         return '';
     }
 }
+
 
 function getPaths(element) {
     //get elements with ol and ul tag name
@@ -91,63 +101,22 @@ function eliminatePaths() {
     }
 }
 
-function getListForAPath(path) {
-    //split the path into elements
-    let path_items = path.split('/');
-    let last_element = path_items[path_items.length - 1];
-    let elements = returnByIdentifier(last_element);
-
-    let parent_path = "";
-    if (path_items.length > 1) {
-        parent_path = path_items[path_items.length - 2]
-    }
-
-    let parent = returnByIdentifier(parent_path.substring(parent_path.lastIndexOf('/') + 1))[0];
-    let siblings = [];
-
-    for (let i = 0; i < elements.length; i++) {
-        if (elements[i].parentNode == parent) {
-            siblings.push(elements[i]);
-        }
-    }
-
-    return siblings;
-}
-
-function returnByIdentifier(last_element) {
-    if (last_element.indexOf('.') == -1 && last_element.indexOf('#') == -1 && last_element.indexOf('&') == -1) {
-        return document.getElementsByTagName(last_element);
-    }
-
-    let class_name = last_element.substring(last_element.indexOf('.') + 1);
-    let id = last_element.substring(last_element.indexOf('#') + 1);
-
-    if (class_name) {
-        return document.getElementsByClassName(class_name);
-    }
-    else if (id) {
-        return document.getElementById(id);
-    }
-    else {
-        return [];
-    }
-}
-
 function savePossibleLists() {
     for (let [key, value] of paths) {
-        let elements = getListForAPath(key);
+        let elements = document.querySelectorAll(key);
         if (elements.length > 1) {
             for (let i = 0; i < elements.length; i++) {
                 if (!isParentMarked(elements[i])) {
                     elements[i].setAttribute("wfe-check", "checked");
                     //add all the siblings to the list
-                    elements[i].parentNode.childNodes.forEach(function (node) {
-                        if (node.nodeType == 1) {
-                            node.setAttribute("wfe-check", "checked");
-                            filteredPage.add(node);
 
-                        }
-                    });
+                    let parent = elements[i].parentNode;
+                    let children = parent.querySelectorAll("*");
+                    for (let j = 0; j < children.length; j++) {
+                        children[j].setAttribute("wfe-check", "checked");
+                        filteredPage.add(children[j]);
+                    }
+
                 }
 
                 else {
@@ -183,8 +152,8 @@ function removeElementFromDOM(text) {
         let blur = data.blur;
         //check if the Set element's text contains the text
         for (let element of filteredPage) {
-            if (element.getAttribute("wfe-check") != "hidden" &&
-                element.textContent.toLowerCase().indexOf(text.toLowerCase()) != -1) {
+            if (element.getAttribute("wfe-check") != "hidden" && element.innerText &&
+                element.innerText.toLowerCase().indexOf(text.toLowerCase()) != -1) {
                 if (element.parentNode) {
                     if (blur) {
                         element.style.setProperty("filter", "blur(10px)");
@@ -228,7 +197,7 @@ function addRemovedElementsBack(word) {
 
         let elements = document.querySelectorAll('[wfe-check="hidden"]');
         for (let i = 0; i < elements.length; i++) {
-            if (word && elements[i].textContent && elements[i].textContent.toLowerCase().indexOf(word.toLowerCase()) != -1) {
+            if (word && elements[i].innerText && elements[i].innerText.toLowerCase().indexOf(word.toLowerCase()) != -1) {
                 addBack = true;
             }
 
@@ -237,22 +206,34 @@ function addRemovedElementsBack(word) {
             }
 
             if (addBack) {
-                if (elements[i].parentNode && elements[i].parentNode.getAttribute("wfe-check") == "hiddenParent") {
-                    //remove style 
-                    elements[i].parentNode.style.setProperty("display", "");
-                    elements[i].parentNode.removeAttribute("wfe-check");
+                //check if it has other filtered words in it
+                //get filtered words
+                chrome.storage.local.get(["filteredWords"], function (result) {
+                    let filteredWords = result.filteredWords || [];
+                    let hasKeyword = filteredWords.some(function (filter) {
+                        return elements[i].innerText.toLowerCase().indexOf(filter.toLowerCase()) !== -1;
+                    });
+                    if (hasKeyword) {
+                        return;
+                    }
+
+                    if (elements[i].parentNode && elements[i].parentNode.getAttribute("wfe-check") == "hiddenParent") {
+                        //remove style 
+                        elements[i].parentNode.style.setProperty("display", "");
+                        elements[i].parentNode.removeAttribute("wfe-check");
+
+                        if (blur) {
+                            elements[i].parentNode.style.setProperty("filter", "none");
+                        }
+                    }
+
+                    elements[i].style.setProperty("display", "");
+                    elements[i].removeAttribute("wfe-check");
 
                     if (blur) {
-                        elements[i].parentNode.style.setProperty("filter", "none");
+                        elements[i].style.setProperty("filter", "none");
                     }
-                }
-
-                elements[i].style.setProperty("display", "");
-                elements[i].removeAttribute("wfe-check");
-
-                if (blur) {
-                    elements[i].style.setProperty("filter", "none");
-                }
+                });
             }
         }
     });
@@ -276,7 +257,6 @@ function unblurElements() {
 
 function removeAfterRefresh() {
     // Retrieve filtered words from local storage
-    var start = performance.now();
     chrome.storage.local.get(["filteredWords"], function (result) {
         let filteredWords = result.filteredWords || [];
         // Use the filtered words to filter elements on the page
@@ -284,24 +264,7 @@ function removeAfterRefresh() {
             removeElementFromDOM(filteredWords[i]);
         }
     });
-
-    var end = performance.now();
-    console.log("Time to remove elements after refresh: " + (end - start));
 }
-
-/*function colorizeLists() {
-    const colors = ["red", "blue", "green", "yellow", "orange", "purple", "pink", "brown", "black", "white"];
-    let i = 0;
-    filteredPage.forEach(list => {
-        list.forEach(element => {
-            element.style.backgroundColor = colors[i];
-            if (i == colors.length) {
-                i = 0;
-            }
-        });
-        i++;
-    });
-}*/
 
 /* learning mode logic */
 
