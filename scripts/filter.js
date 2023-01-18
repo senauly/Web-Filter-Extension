@@ -134,14 +134,20 @@ function returnByIdentifier(last_element) {
 }
 
 function savePossibleLists() {
-    var element_list = [];
+    var element_list = new Set();
     for (let [key, value] of paths) {
         let elements = getListForAPath(key);
         if (elements.length > 1) {
             for (let i = 0; i < elements.length; i++) {
                 if (!isParentMarked(elements[i])) {
                     elements[i].setAttribute("wfe-check", "checked");
-                    element_list.push(elements[i]);
+                    //add all the siblings to the list
+                    elements[i].parentNode.childNodes.forEach(function (node) {
+                        if (node.nodeType == 1) {
+                            node.setAttribute("wfe-check", "checked");
+                            element_list.add(node);
+                        }
+                    });
                 }
 
                 else {
@@ -151,7 +157,7 @@ function savePossibleLists() {
         }
     }
 
-    if (!filteredPage.includes(element_list)) filteredPage.push(element_list);
+    if (!filteredPage.includes(Array.from(element_list))) filteredPage.push(Array.from(element_list));
 }
 
 //recursively check if any parent is colored
@@ -240,7 +246,7 @@ function addRemovedElementsBack(word) {
                     elements[i].parentNode.style.setProperty("display", "");
                     elements[i].parentNode.removeAttribute("wfe-check");
 
-                    if(blur) {
+                    if (blur) {
                         elements[i].parentNode.style.setProperty("filter", "none");
                     }
                 }
@@ -248,7 +254,7 @@ function addRemovedElementsBack(word) {
                 elements[i].style.setProperty("display", "");
                 elements[i].removeAttribute("wfe-check");
 
-                if(blur) {
+                if (blur) {
                     elements[i].style.setProperty("filter", "none");
                 }
             }
@@ -344,27 +350,29 @@ function findParentOfRepeatedElements(element) {
 
 function getAttributesOfTheElements(element) {
     var attributes = new Set();
-    var learnedElements = document.querySelectorAll("[wfe-check='learned']");
+    var learnedElements = document.querySelectorAll("[wfe-check='learned']");;
 
     learnedElements.forEach(element => {
-        for (let i = 0; i < element.attributes.length; i++) {
-            if (element.attributes[i].name != "wfe-check" && element.attributes[i].name != "style") {
-                var attribute = element.attributes[i].name + " = " + element.attributes[i].value;
-                attributes.add(attribute);
+        if (element.tagName != 'BODY' && element.tagName != 'HTML') {
+            for (let i = 0; i < element.attributes.length; i++) {
+                if (element.attributes[i].name != "wfe-check" && element.attributes[i].name != "style") {
+                    var attribute = element.attributes[i].name + " = " + element.attributes[i].value;
+                    attributes.add(attribute);
+                }
             }
-        }
 
-        //if attribute length is 0, get the attrbiutes of the first child
-        if (element.attributes.length == 0) {
-            for (let i = 0; i < element.childNodes.length; i++) {
-                if (element.childNodes[i].nodeType == 1) {
-                    for (let j = 0; j < element.childNodes[i].attributes.length; j++) {
-                        if (element.childNodes[i].attributes[j].name != "wfe-check" || element.childNodes[i].attributes[j].name != "style") {
-                            var attribute = element.childNodes[i].attributes[j].name + " = " + element.childNodes[i].attributes[j].value;
-                            attributes.add(attribute);
+            //if attribute length is 0, get the attrbiutes of the first child
+            if (element.attributes.length == 0) {
+                for (let i = 0; i < element.childNodes.length; i++) {
+                    if (element.childNodes[i].nodeType == 1) {
+                        for (let j = 0; j < element.childNodes[i].attributes.length; j++) {
+                            if (element.childNodes[i].attributes[j].name != "wfe-check" || element.childNodes[i].attributes[j].name != "style") {
+                                var attribute = element.childNodes[i].attributes[j].name + " = " + element.childNodes[i].attributes[j].value;
+                                attributes.add(attribute);
+                            }
                         }
+                        break;
                     }
-                    break;
                 }
             }
         }
@@ -376,6 +384,7 @@ function getAttributesOfTheElements(element) {
 function saveLearnedElements() {
 
     var attributes = getAttributesOfTheElements();
+    if (attributes.size == 0) window.location.reload();
     // Get the current website's domain
     var currentDomain = window.location.hostname;
 
@@ -410,11 +419,26 @@ function getElementsWithAttributes(attributes) {
     attributes.forEach(attribute => {
         var attributeName = attribute.split(" = ")[0];
         var attributeValue = attribute.split(" = ")[1];
-        var elementsWithAttribute = document.querySelectorAll("[" + attributeName + "='" + attributeValue + "']");
-        if (elementsWithAttribute.length > 0) {
-            elementsWithAttribute.forEach(element => {
-                elements.add(element);
-            });
+        var elementsWithAttribute = new Array();
+        switch (attributeName) {
+            case "class":
+                elementsWithAttribute = document.getElementsByClassName(attributeValue);
+                break;
+                
+            case "id":
+                var element = document.getElementById(attributeValue);
+                if (element) {
+                    elementsWithAttribute.push(element);
+                }
+                break;
+
+            default:
+                elementsWithAttribute = document.querySelectorAll("[" + attributeName + "='" + attributeValue + "']");
+                break;
+        }
+
+        for (var i = 0; i < elementsWithAttribute.length; i++) {
+            elements.add(elementsWithAttribute[i]);
         }
     });
 
@@ -434,6 +458,7 @@ var learned_elements = false;
 var learnedAttributes = new Array();
 
 //get mode from local storage
+var start = performance.now();
 chrome.storage.local.get(["learning_mode"], function (result) {
     learning_mode = result.learning_mode;
     if (!learning_mode) {
@@ -442,16 +467,18 @@ chrome.storage.local.get(["learning_mode"], function (result) {
             var learnedElementsData = result.learnedElements || { domain: "", attributes: [] };
             if (learnedElementsData.domain == window.location.hostname) {
                 //filtered page is the learned elements
-                learnedAttributes = learnedElementsData.attributes;
-                learned_elements = true;
+                if (learnedElementsData.attributes.length > 0) {
+                    learnedAttributes = learnedElementsData.attributes;
+                    learned_elements = true;
+                }
             }
         });
 
-        if(learned_elements){
+        if (learned_elements) {
             var config = { childList: true, attributes: true, attributeFilter: learnedAttributes };
         }
 
-        else{
+        else {
             var config = { childList: true, subtree: true };
         }
 
@@ -483,6 +510,7 @@ chrome.storage.local.get(["learning_mode"], function (result) {
         chrome.runtime.onMessage.addListener(
             function (request, sender, sendResponse) {
                 if (request.message == "filter") {
+                    //timer
                     removeElementFromDOM(request.word);
                 }
             }
@@ -549,9 +577,9 @@ chrome.storage.local.get(["learning_mode"], function (result) {
                             });
                         }
 
-                        if(event.code === "KeyR" && event.ctrlKey){
+                        if (event.code === "KeyR" && event.ctrlKey) {
                             //reset learning mode
-                            if(confirm("Previously learned elements for this domain will be reseted. Do you want to continue?")){
+                            if (confirm("Previously learned elements for this domain will be reseted. Do you want to continue?")) {
                                 //reset the learned elements for this domain only
                                 chrome.storage.local.get(["learnedElements"], function (result) {
                                     var learnedElementsData = result.learnedElements || { domain: "", attributes: [] };
