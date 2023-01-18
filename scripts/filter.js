@@ -2,10 +2,16 @@
 
 function traverse(element) {
     // Get the same tagged children of the element
+    if(element.getAttribute['wfe-check']) return;
+    if(element.nodeType != 1) return;
+    if(!element.textContent) return;
+
     const children = element.children;
+    if(!children) return;
 
     // Loop through the children
     for (let i = 0; i < children.length; i++) {
+        if (element.nodeType != 1) continue;
         // Traverse each child
         //check if the tag is in the skippedTags array
         if (skippedTags.includes(children[i].tagName.toLowerCase())) {
@@ -56,11 +62,16 @@ function getPath(element) {
     }
 }
 
-function getPaths() {
+function getPaths(element) {
     //get elements with ol and ul tag name
-    let list = Array.from(document.body.getElementsByTagName('li'));
-    filteredPage.push(list);
-    traverse(document.body);
+    //let list = Array.from(document.body.getElementsByTagName('li'));
+    //filteredPage.push(list);
+    var elements = document.body.getElementsByTagName('li');
+    //add elements to the filteredPage Set
+    for (let i = 0; i < elements.length; i++) {
+        filteredPage.add(elements[i]);
+    }
+    traverse(element);
     return paths;
 }
 
@@ -100,13 +111,18 @@ function getListForAPath(path) {
         }
     }
 
+    /*
     let matchFound = false;
     for (let i = 0; i < filteredPage.length; i++) {
         if (filteredPage[i].length == siblings.length && filteredPage[i].every((value, index) => value === siblings[index])) {
             matchFound = true;
             break;
         }
-    }
+    }*/
+
+    let matchFound = false;
+    matchFound = siblings.every(element => filteredPage.has(element));
+
     if (!matchFound) {
         return siblings;
     }
@@ -145,7 +161,9 @@ function savePossibleLists() {
                     elements[i].parentNode.childNodes.forEach(function (node) {
                         if (node.nodeType == 1) {
                             node.setAttribute("wfe-check", "checked");
-                            element_list.add(node);
+                            /*element_list.add(node);*/
+                            filteredPage.add(node);
+
                         }
                     });
                 }
@@ -156,8 +174,6 @@ function savePossibleLists() {
             }
         }
     }
-
-    if (!filteredPage.includes(Array.from(element_list))) filteredPage.push(Array.from(element_list));
 }
 
 //recursively check if any parent is colored
@@ -184,7 +200,7 @@ function removeElementFromDOM(text) {
     chrome.storage.local.get("blur", function (data) {
         let blur = data.blur;
         //remove from DOM if list element contains a text
-        filteredPage.forEach(list => {
+        /*filteredPage.forEach(list => {
             list.forEach(element => {
                 if (element.getAttribute("wfe-check") != "hidden" &&
                     element.textContent.toLowerCase().indexOf(text.toLowerCase()) != -1) {
@@ -218,7 +234,42 @@ function removeElementFromDOM(text) {
                     }
                 }
             });
-        });
+        });*/
+
+        //check if the Set element's text contains the text
+        for (let element of filteredPage) {
+            if (element.getAttribute("wfe-check") != "hidden" &&
+                element.textContent.toLowerCase().indexOf(text.toLowerCase()) != -1) {
+                if (element.parentNode) {
+                    if (blur) {
+                        element.style.setProperty("filter", "blur(10px)");
+                    }
+                    else {
+                        element.style.setProperty("display", "none");
+                    }
+
+                    //add attribute to element
+                    element.setAttribute("wfe-check", "hidden");
+
+                    if (element.parentNode && !element.parentNode.childNodes) {
+                        //check if all child nodes are hidden
+                        let allHidden = true;
+                        for (let i = 0; i < element.parentNode.childNodes.length; i++) {
+                            //check the wfe-check value
+                            if (element.parentNode.childNodes[i].getAttribute("wfe-check") != "hidden") {
+                                allHidden = false;
+                                break;
+                            }
+                        }
+
+                        if (allHidden) {
+                            element.parentNode.style.setProperty("display", "none");
+                            element.parentNode.setAttribute("wfe-check", "hiddenParent");
+                        }
+                    }
+                }
+            }
+        }
     });
 }
 
@@ -280,6 +331,7 @@ function unblurElements() {
 
 function removeAfterRefresh() {
     // Retrieve filtered words from local storage
+    var start = performance.now();
     chrome.storage.local.get(["filteredWords"], function (result) {
         let filteredWords = result.filteredWords || [];
         // Use the filtered words to filter elements on the page
@@ -287,9 +339,12 @@ function removeAfterRefresh() {
             removeElementFromDOM(filteredWords[i]);
         }
     });
+
+    var end = performance.now();
+    console.log("Time to remove elements after refresh: " + (end - start));
 }
 
-function colorizeLists() {
+/*function colorizeLists() {
     const colors = ["red", "blue", "green", "yellow", "orange", "purple", "pink", "brown", "black", "white"];
     let i = 0;
     filteredPage.forEach(list => {
@@ -301,7 +356,7 @@ function colorizeLists() {
         });
         i++;
     });
-}
+}*/
 
 /* learning mode logic */
 
@@ -424,7 +479,7 @@ function getElementsWithAttributes(attributes) {
             case "class":
                 elementsWithAttribute = document.getElementsByClassName(attributeValue);
                 break;
-                
+
             case "id":
                 var element = document.getElementById(attributeValue);
                 if (element) {
@@ -438,11 +493,30 @@ function getElementsWithAttributes(attributes) {
         }
 
         for (var i = 0; i < elementsWithAttribute.length; i++) {
-            elements.add(elementsWithAttribute[i]);
+            filteredPage.add(elementsWithAttribute[i]);
         }
     });
 
-    filteredPage.push(elements);
+}
+
+function testFilterWords(len) {
+    //create random 1000 words array
+    var words = new Array();
+    for (var i = 0; i < len; i++) {
+        words.push("same word");
+    }
+
+
+    words.push("humans");
+    words.push("vikipedi");
+    words.push("Gebze");
+    words.push("teknik");
+    words.push("üniversitesi");
+
+    //set the filtered words array to the storage
+    chrome.storage.local.set({ "filteredWords": words });
+
+    //reload the page
 }
 
 
@@ -450,7 +524,7 @@ var paths = new Map();
 var skippedTags = ['script', 'input', 'header', 'footer', 'nav', 'style', 'meta', 'form', 'td', 'li'];
 var skippedRoles = ['radio', 'button', 'checkbox', 'navigation'];
 
-var filteredPage = new Array();
+var filteredPage = new Set();
 var removedElements = new Array();
 
 var learning_mode = false;
@@ -458,7 +532,7 @@ var learned_elements = false;
 var learnedAttributes = new Array();
 
 //get mode from local storage
-var start = performance.now();
+
 chrome.storage.local.get(["learning_mode"], function (result) {
     learning_mode = result.learning_mode;
     if (!learning_mode) {
@@ -484,7 +558,7 @@ chrome.storage.local.get(["learning_mode"], function (result) {
 
         const callback = function (mutationsList, observer) {
             for (let mutation of mutationsList) {
-                if (mutation.type === 'childList') {
+                if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
                     //get the blur from storage
                     if (learned_elements) {
                         getElementsWithAttributes(learnedAttributes);
@@ -492,9 +566,10 @@ chrome.storage.local.get(["learning_mode"], function (result) {
                     }
 
                     else {
-                        getPaths();
+                        getPaths(document.body);
                         eliminatePaths();
                         savePossibleLists();
+                        //testFilterWords(1000);
                         removeAfterRefresh();
                     }
                 }
