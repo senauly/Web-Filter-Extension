@@ -111,23 +111,7 @@ function getListForAPath(path) {
         }
     }
 
-    /*
-    let matchFound = false;
-    for (let i = 0; i < filteredPage.length; i++) {
-        if (filteredPage[i].length == siblings.length && filteredPage[i].every((value, index) => value === siblings[index])) {
-            matchFound = true;
-            break;
-        }
-    }*/
-
-    let matchFound = false;
-    matchFound = siblings.every(element => filteredPage.has(element));
-
-    if (!matchFound) {
-        return siblings;
-    }
-
-    return [];
+    return siblings;
 }
 
 function returnByIdentifier(last_element) {
@@ -150,7 +134,6 @@ function returnByIdentifier(last_element) {
 }
 
 function savePossibleLists() {
-    var element_list = new Set();
     for (let [key, value] of paths) {
         let elements = getListForAPath(key);
         if (elements.length > 1) {
@@ -161,7 +144,6 @@ function savePossibleLists() {
                     elements[i].parentNode.childNodes.forEach(function (node) {
                         if (node.nodeType == 1) {
                             node.setAttribute("wfe-check", "checked");
-                            /*element_list.add(node);*/
                             filteredPage.add(node);
 
                         }
@@ -199,43 +181,6 @@ function isParentMarked(element) {
 function removeElementFromDOM(text) {
     chrome.storage.local.get("blur", function (data) {
         let blur = data.blur;
-        //remove from DOM if list element contains a text
-        /*filteredPage.forEach(list => {
-            list.forEach(element => {
-                if (element.getAttribute("wfe-check") != "hidden" &&
-                    element.textContent.toLowerCase().indexOf(text.toLowerCase()) != -1) {
-                    if (element.parentNode) {
-                        if (blur) {
-                            element.style.setProperty("filter", "blur(10px)");
-                        }
-                        else {
-                            element.style.setProperty("display", "none");
-                        }
-
-                        //add attribute to element
-                        element.setAttribute("wfe-check", "hidden");
-
-                        if (element.parentNode && !element.parentNode.childNodes) {
-                            //check if all child nodes are hidden
-                            let allHidden = true;
-                            for (let i = 0; i < element.parentNode.childNodes.length; i++) {
-                                //check the wfe-check value
-                                if (element.parentNode.childNodes[i].getAttribute("wfe-check") != "hidden") {
-                                    allHidden = false;
-                                    break;
-                                }
-                            }
-
-                            if (allHidden) {
-                                element.parentNode.style.setProperty("display", "none");
-                                element.parentNode.setAttribute("wfe-check", "hiddenParent");
-                            }
-                        }
-                    }
-                }
-            });
-        });*/
-
         //check if the Set element's text contains the text
         for (let element of filteredPage) {
             if (element.getAttribute("wfe-check") != "hidden" &&
