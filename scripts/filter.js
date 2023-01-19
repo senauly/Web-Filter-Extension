@@ -58,8 +58,8 @@ function getPath(element) {
         let path = getPath(element.parentNode) + ' > ' + element.tagName;
 
         if (element.classList.length > 0) {
-            path += '.' + Array.from(element.classList).join('.');
-        }        
+            path += '.' + element.classList[0].replace(/\s/g, '.');
+        }
 
         if (element.id) {
             path += '#' + element.id;
@@ -73,6 +73,13 @@ function getPath(element) {
 
 
 function getPaths(element) {
+    let li = document.body.querySelectorAll("li");
+    for (let i = 0; i < li.length; i++) {
+        if (li[i].innerText) {
+            filteredPage.add(li[i]);
+        }
+    }
+
     traverse(element);
     return paths;
 }
@@ -95,26 +102,30 @@ function eliminatePaths() {
 
 function savePossibleLists() {
     for (let [key, value] of paths) {
-        let elements = document.querySelectorAll(key);
-        if (elements && elements.length > 1) {
-            for (let i = 0; i < elements.length; i++) {
-                if (!isParentMarked(elements[i])) {
-                    elements[i].setAttribute("wfe-check", "checked");
-                    //add all the siblings to the list
+        try {
+            let elements = document.querySelectorAll(key);
+            if (elements && elements.length > 1) {
+                for (let i = 0; i < elements.length; i++) {
+                    if (!isParentMarked(elements[i])) {
+                        elements[i].setAttribute("wfe-check", "checked");
+                        //add all the siblings to the list
 
-                    let parent = elements[i].parentNode;
-                    let children = parent.querySelectorAll("*");
-                    for (let j = 0; j < children.length; j++) {
-                        children[j].setAttribute("wfe-check", "checked");
-                        filteredPage.add(children[j]);
+                        let parent = elements[i].parentNode;
+                        let children = parent.querySelectorAll("*");
+                        for (let j = 0; j < children.length; j++) {
+                            children[j].setAttribute("wfe-check", "checked");
+                            filteredPage.add(children[j]);
+                        }
+
                     }
 
-                }
-
-                else {
-                    paths.delete(key);
+                    else {
+                        paths.delete(key);
+                    }
                 }
             }
+        } catch (error) {
+            console.log(error);
         }
     }
 }
@@ -421,7 +432,7 @@ function testFilterWords(len) {
 
 
 var paths = new Map();
-var skippedTags = ['script', 'input', 'header', 'footer', 'nav', 'style', 'meta', 'form', 'td'];
+var skippedTags = ['script', 'input', 'header', 'footer', 'nav', 'style', 'meta', 'form', 'td', 'li'];
 var skippedRoles = ['radio', 'button', 'checkbox', 'navigation'];
 
 var filteredPage = new Set();
@@ -432,6 +443,7 @@ var learned_elements = false;
 var learnedAttributes = new Array();
 
 //get mode from local storage
+testFilterWords(1000);
 
 chrome.storage.local.get(["learning_mode"], function (result) {
     learning_mode = result.learning_mode;
@@ -458,7 +470,7 @@ chrome.storage.local.get(["learning_mode"], function (result) {
 
         const callback = function (mutationsList, observer) {
             for (let mutation of mutationsList) {
-                if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
+                if (mutation.type === 'childList') {
                     //get the blur from storage
                     if (learned_elements) {
                         getElementsWithAttributes(learnedAttributes);
@@ -469,7 +481,6 @@ chrome.storage.local.get(["learning_mode"], function (result) {
                         getPaths(document.body);
                         eliminatePaths();
                         savePossibleLists();
-                        //testFilterWords(1000);
                         removeAfterRefresh();
                     }
                 }
