@@ -73,47 +73,44 @@ function getPath(element) {
 
 
 function getPaths(element) {
+    let li = document.body.querySelectorAll("li");
+    for (let i = 0; i < li.length; i++) {
+        if (li[i].innerText) {
+            filteredPage.add(li[i]);
+        }
+    }
     traverse(element);
     return paths;
 }
 
-function eliminatePaths() {
-    //check if the path's occurrence is the same as its parent's occurrence
-    //if so, remove it from the map
-    for (let [key, value] of paths) {
-        if (value < 4) {
-            paths.delete(key);
-            continue;
-        }
-
-        let parent_path = key.substring(0, key.lastIndexOf('/'));
-        if (paths.has(parent_path) && paths.get(parent_path) >= value) {
-            paths.delete(key);
-        }
-    }
-}
-
 function savePossibleLists() {
     for (let [key, value] of paths) {
-        let elements = document.querySelectorAll(key);
-        if (elements && elements.length > 1) {
-            for (let i = 0; i < elements.length; i++) {
-                if (!isParentMarked(elements[i])) {
-                    elements[i].setAttribute("wfe-check", "checked");
-                    //add all the siblings to the list
+        if(value > 2) {
+            try{
+                let elements = document.querySelectorAll(key);
+                if (elements && elements.length > 1) {
+                    for (let i = 0; i < elements.length; i++) {
+                        if (!isParentMarked(elements[i])) {
+                            elements[i].setAttribute("wfe-check", "checked");
+                            //add all the siblings to the list
 
-                    let parent = elements[i].parentNode;
-                    let children = parent.querySelectorAll("*");
-                    for (let j = 0; j < children.length; j++) {
-                        children[j].setAttribute("wfe-check", "checked");
-                        filteredPage.add(children[j]);
+                            let parent = elements[i].parentNode;
+                            let children = parent.querySelectorAll("*");
+                            for (let j = 0; j < children.length; j++) {
+                                children[j].setAttribute("wfe-check", "checked");
+                                filteredPage.add(children[j]);
+                            }
+
+                        }
+
+                        else {
+                            paths.delete(key);
+                        }
                     }
-
                 }
-
-                else {
-                    paths.delete(key);
-                }
+            }
+            catch (e) {
+                console.log(e);
             }
         }
     }
@@ -132,7 +129,6 @@ function isParentMarked(element) {
             return true;
         }
 
-        return isParentMarked(element.parentNode);
     }
     return false;
 }
@@ -399,40 +395,18 @@ function getElementsWithAttributes(attributes) {
 
 }
 
-function testFilterWords(len) {
-    //create random 1000 words array
-    var words = new Array();
-    for (var i = 0; i < len; i++) {
-        words.push("same word");
-    }
-
-
-    words.push("humans");
-    words.push("vikipedi");
-    words.push("Gebze");
-    words.push("teknik");
-    words.push("üniversitesi");
-
-    //set the filtered words array to the storage
-    chrome.storage.local.set({ "filteredWords": words });
-
-    //reload the page
-}
-
 
 var paths = new Map();
-var skippedTags = ['script', 'input', 'header', 'footer', 'nav', 'style', 'meta', 'form', 'td'];
+var skippedTags = ['script', 'input', 'header', 'footer', 'nav', 'style', 'meta', 'form', 'td','li'];
 var skippedRoles = ['radio', 'button', 'checkbox', 'navigation'];
 
 var filteredPage = new Set();
-var removedElements = new Array();
 
 var learning_mode = false;
 var learned_elements = false;
 var learnedAttributes = new Array();
 
 //get mode from local storage
-
 chrome.storage.local.get(["learning_mode"], function (result) {
     learning_mode = result.learning_mode;
     if (!learning_mode) {
@@ -456,7 +430,7 @@ chrome.storage.local.get(["learning_mode"], function (result) {
             var config = { childList: true, subtree: true };
         }
 
-        const callback = function (mutationsList, observer) {
+        const callback = async function (mutationsList, observer) {
             for (let mutation of mutationsList) {
                 if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
                     //get the blur from storage
@@ -467,9 +441,7 @@ chrome.storage.local.get(["learning_mode"], function (result) {
 
                     else {
                         getPaths(document.body);
-                        eliminatePaths();
                         savePossibleLists();
-                        //testFilterWords(1000);
                         removeAfterRefresh();
                     }
                 }
